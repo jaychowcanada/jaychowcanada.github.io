@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Optimizer — PPO Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #0f0e0c;
+    --bg2:     #141310;
+    --surface: #1a1814;
+    --s2:      #1f1d18;
+    --border:  #2e2b24;
+    --gold:    #c9a84c;
+    --gold2:   #e8c87a;
+    --gold-dim:#5a4a20;
+    --cream:   #f0e8d8;
+    --cream2:  #b8a98a;
+    --green:   #4caf7a;
+    --red:     #cf4f4f;
+    --blue:    #5b8fd4;
+    --text:    #d8cdb8;
+    --muted:   #5a5448;
+    --muted2:  #7a7060;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.6;
+  }
+
+  /* Radial warm glow */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -20%;
+    right: -10%;
+    width: 60%;
+    height: 70%;
+    background: radial-gradient(ellipse, rgba(201,168,76,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 36px 40px 48px;
+  }
+
+  /* ── MASTHEAD ── */
+  .masthead {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: start;
+    gap: 40px;
+    margin-bottom: 40px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+    animation: riseIn .7s ease both;
+  }
+
+  .masthead-left { display: flex; flex-direction: column; gap: 10px; }
+
+  .eyebrow {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--gold);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(36px, 5vw, 60px);
+    font-weight: 700;
+    color: var(--cream);
+    line-height: 1.05;
+    letter-spacing: -0.5px;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--gold2);
+  }
+
+  .descriptor {
+    font-size: 11px;
+    color: var(--muted2);
+    letter-spacing: 1px;
+    line-height: 1.8;
+    max-width: 480px;
+  }
+
+  .agent-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+  }
+
+  .episode-badge {
+    background: linear-gradient(135deg, var(--gold-dim), rgba(90,74,32,0.3));
+    border: 1px solid var(--gold-dim);
+    border-radius: 4px;
+    padding: 16px 24px;
+    text-align: right;
+  }
+
+  .ep-label {
+    font-size: 8px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .ep-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--gold2);
+    line-height: 1;
+  }
+
+  .ep-sub {
+    font-size: 9px;
+    color: var(--muted2);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  .ppo-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--green);
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border: 1px solid rgba(76,175,122,0.3);
+    border-radius: 100px;
+    background: rgba(76,175,122,0.06);
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    background: var(--green);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--green);
+    animation: livePulse 2s infinite;
+  }
+
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── METRICS ROW ── */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 1px;
+    background: var(--border);
+    margin-bottom: 28px;
+    border-radius: 8px;
+    overflow: hidden;
+    animation: riseIn .7s .1s ease both;
+  }
+
+  .metric {
+    background: var(--surface);
+    padding: 20px 20px 18px;
+    position: relative;
+    transition: background .25s;
+  }
+
+  .metric:hover { background: var(--s2); }
+
+  .metric::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 20px; right: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+    opacity: 0;
+    transition: opacity .3s;
+  }
+
+  .metric:hover::after { opacity: 1; }
+
+  .m-label {
+    font-size: 8px;
+    letter-spacing: 2.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .m-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .m-val.gold  { color: var(--gold2); }
+  .m-val.green { color: var(--green); }
+  .m-val.red   { color: var(--red); }
+  .m-val.blue  { color: var(--blue); }
+  .m-val.cream { color: var(--cream); }
+
+  .m-sub {
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 6px;
+    letter-spacing: .5px;
+  }
+
+  .m-delta {
+    position: absolute;
+    top: 20px; right: 14px;
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+
+  .m-delta.up { color: var(--green); }
+  .m-delta.dn { color: var(--red); }
+
+  /* ── MAIN GRID ── */
+  .grid-main {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px;
+    animation: riseIn .7s .2s ease both;
+    transition: border-color .3s;
+  }
+
+  .panel:hover { border-color: rgba(201,168,76,0.2); }
+
+  .panel-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cream2);
+    letter-spacing: 1px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .panel-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+  }
+
+  .panel-title .accent-line {
+    width: 16px; height: 2px;
+    background: var(--gold);
+    flex-shrink: 0;
+    border-radius: 1px;
+  }
+
+  /* ── EFFICIENT FRONTIER ── */
+  #frontierCanvas {
+    width: 100%;
+    display: block;
+  }
+
+  .frontier-legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 14px;
+  }
+
+  .leg-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--muted2);
+    text-transform: uppercase;
+  }
+
+  .leg-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .leg-line {
+    width: 16px; height: 2px;
+    flex-shrink: 0;
+    border-radius: 1px;
+  }
+
+  /* ── ALLOCATION PANEL ── */
+  .allocation-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Arc chart */
+  .arc-container {
+    display: flex;
+    justify-content: center;
+    position: relative;
+  }
+
+  #arcCanvas { display: block; }
+
+  .arc-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .arc-total-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .arc-total-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--gold2);
+    line-height: 1.1;
+  }
+
+  /* Asset rows */
+  .asset-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(46,43,36,0.5);
+    cursor: default;
+    transition: background .2s;
+    padding: 10px 8px;
+    border-radius: 4px;
+    margin: 0 -8px;
+  }
+
+  .asset-row:hover { background: rgba(201,168,76,0.04); }
+
+  .asset-swatch {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .asset-name {
+    font-size: 11px;
+    color: var(--cream);
+    flex: 1;
+    letter-spacing: .5px;
+  }
+
+  .asset-ticker {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .asset-bar-wrap {
+    width: 80px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .asset-bar { height: 100%; border-radius: 2px; transition: width 1.2s cubic-bezier(0.34,1.56,0.64,1); }
+
+  .asset-pct {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gold2);
+    width: 38px;
+    text-align: right;
+  }
+
+  .asset-ret {
+    font-size: 9px;
+    width: 44px;
+    text-align: right;
+    letter-spacing: .5px;
+  }
+
+  .asset-ret.up { color: var(--green); }
+  .asset-ret.dn { color: var(--red); }
+
+  /* ── BOTTOM GRID ── */
+  .grid-bottom {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+    animation: riseIn .7s .3s ease both;
+  }
+
+  /* Reward curve */
+  #rewardCanvas { width: 100%; display: block; }
+
+  /* PPO Params */
+  .param-list { display: flex; flex-direction: column; gap: 0; }
+
+  .param-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(46,43,36,0.5);
+  }
+
+  .param-row:last-child { border-bottom: none; }
+
+  .param-key {
+    font-size: 10px;
+    color: var(--muted2);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .param-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    color: var(--gold2);
+    font-weight: 600;
+  }
+
+  /* Risk bands */
+  .risk-meter {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .risk-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .risk-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .risk-name {
+    font-size: 10px;
+    color: var(--muted2);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  .risk-score {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .risk-bar-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .risk-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1.4s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .risk-bar-fill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 60%, rgba(255,255,255,0.15));
+  }
+
+  /* Rebalance log */
+  .rebal-item {
+    display: flex;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(46,43,36,0.4);
+    font-size: 10px;
+    animation: fadeSlide .4s ease both;
+  }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .rebal-time { color: var(--muted); flex-shrink: 0; width: 56px; }
+  .rebal-action { color: var(--cream); flex: 1; line-height: 1.6; }
+  .rebal-pnl { flex-shrink: 0; font-family: 'Playfair Display', serif; font-size: 12px; }
+  .rebal-pnl.up { color: var(--green); }
+  .rebal-pnl.dn { color: var(--red); }
+
+  /* Footer */
+  footer {
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .tech-stack { display: flex; gap: 10px; }
+
+  .tech-badge {
+    font-size: 9px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--muted2);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    transition: border-color .3s, color .3s;
+  }
+
+  .tech-badge:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+  .footer-copy {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  @keyframes riseIn {
+    from { opacity: 0; transform: translateY(22px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Rebalance button */
+  .rebal-btn {
+    display: block;
+    width: 100%;
+    margin-top: 20px;
+    padding: 14px;
+    background: transparent;
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background .25s, border-color .25s, color .25s, box-shadow .25s;
+  }
+
+  .rebal-btn:hover {
+    background: rgba(201,168,76,0.08);
+    border-color: var(--gold);
+    color: var(--gold2);
+    box-shadow: 0 0 20px rgba(201,168,76,0.1);
+  }
+
+  .rebal-btn:active { transform: scale(0.99); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- MASTHEAD -->
+  <div class="masthead">
+    <div class="masthead-left">
+      <span class="eyebrow">Reinforcement Learning · PPO Agent · v4.1</span>
+      <h1>Portfolio<br><em>Optimizer</em></h1>
+      <p class="descriptor">Proximal Policy Optimization agent performing dynamic asset allocation across equities, bonds, commodities &amp; crypto — maximizing risk-adjusted returns via continuous rebalancing.</p>
+    </div>
+    <div class="agent-status">
+      <div class="episode-badge">
+        <div class="ep-label">Training Episode</div>
+        <div class="ep-val" id="episodeVal">12,847</div>
+        <div class="ep-sub">Sharpe target: 2.40 · Converged</div>
+      </div>
+      <div class="ppo-pill">
+        <div class="live-dot"></div>
+        PPO Agent Active
+      </div>
+    </div>
+  </div>
+
+  <!-- METRICS -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="m-label">Portfolio Value</div>
+      <div class="m-val gold" id="portValue">$4.83M</div>
+      <div class="m-sub">AUM · live</div>
+      <div class="m-delta up" id="portDelta">+2.4%</div>
+    </div>
+    <div class="metric">
+      <div class="m-label">Sharpe Ratio</div>
+      <div class="m-val green">2.38</div>
+      <div class="m-sub">Risk-adjusted</div>
+      <div class="m-delta up">↑ 0.12</div>
+    </div>
+    <div class="metric">
+      <div class="m-label">YTD Return</div>
+      <div class="m-val green">+31.7%</div>
+      <div class="m-sub">vs SPY +18.4%</div>
+      <div class="m-delta up">+13.3pp α</div>
+    </div>
+    <div class="metric">
+      <div class="m-label">Max Drawdown</div>
+      <div class="m-val red">-8.2%</div>
+      <div class="m-sub">vs bench -21.4%</div>
+      <div class="m-delta up">Protected</div>
+    </div>
+    <div class="metric">
+      <div class="m-label">Volatility (σ)</div>
+      <div class="m-val blue">11.3%</div>
+      <div class="m-sub">Annualised</div>
+      <div class="m-delta dn">+0.8pp</div>
+    </div>
+    <div class="metric">
+      <div class="m-label">Policy Reward</div>
+      <div class="m-val cream" id="rewardVal">847.3</div>
+      <div class="m-sub">Cumulative · ep avg</div>
+      <div class="m-delta up">+12.1</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="grid-main">
+
+    <!-- Efficient Frontier -->
+    <div class="panel">
+      <div class="panel-title">
+        <div class="accent-line"></div>
+        Efficient Frontier — Risk / Return Space
+      </div>
+      <canvas id="frontierCanvas"></canvas>
+      <div class="frontier-legend">
+        <div class="leg-item">
+          <div class="leg-line" style="background:rgba(201,168,76,0.4)"></div>
+          Frontier Curve
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--gold)"></div>
+          PPO Portfolio
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--blue)"></div>
+          Benchmarks
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:rgba(90,143,212,0.3)"></div>
+          Random Portfolios
+        </div>
+        <div class="leg-item">
+          <div class="leg-dot" style="background:var(--green)"></div>
+          Optimal (MVO)
+        </div>
+      </div>
+    </div>
+
+    <!-- Allocation -->
+    <div class="panel">
+      <div class="panel-title">
+        <div class="accent-line"></div>
+        Asset Allocation
+      </div>
+      <div class="allocation-wrap">
+        <div class="arc-container">
+          <canvas id="arcCanvas" width="200" height="200"></canvas>
+          <div class="arc-center">
+            <div class="arc-total-label">Total AUM</div>
+            <div class="arc-total-val" id="aumVal">$4.83M</div>
+          </div>
+        </div>
+        <div id="assetRows"></div>
+        <button class="rebal-btn" onclick="triggerRebalance()">⟳ &nbsp;Trigger Rebalance</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM GRID -->
+  <div class="grid-bottom">
+
+    <!-- Reward Curve -->
+    <div class="panel">
+      <div class="panel-title">
+        <div class="accent-line"></div>
+        PPO Reward — Training History
+      </div>
+      <canvas id="rewardCanvas"></canvas>
+    </div>
+
+    <!-- PPO Hyperparameters + Risk -->
+    <div class="panel">
+      <div class="panel-title">
+        <div class="accent-line"></div>
+        Risk Metrics
+      </div>
+      <div class="risk-meter" id="riskMeter"></div>
+    </div>
+
+    <!-- Rebalance log -->
+    <div class="panel">
+      <div class="panel-title">
+        <div class="accent-line"></div>
+        Rebalance Log
+      </div>
+      <div id="rebalLog"></div>
+    </div>
+
+  </div>
+
+  <footer>
+    <div class="tech-stack">
+      <span class="tech-badge">PPO · TensorFlow 2.15</span>
+      <span class="tech-badge">OpenAI Gym</span>
+      <span class="tech-badge">NumPy · Pandas</span>
+      <span class="tech-badge">Cvxpy (MVO)</span>
+      <span class="tech-badge">Backtrader</span>
+    </div>
+    <div class="footer-copy" id="footerTime">© Portfolio Optimizer · --:--:-- UTC</div>
+  </footer>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   ASSETS
+═══════════════════════════════════════════ */
+const assets = [
+  { name: 'US Equities',    ticker: 'SPY',  pct: 34, color: '#c9a84c', ret: +4.2 },
+  { name: 'Tech Growth',    ticker: 'QQQ',  pct: 22, color: '#e8c87a', ret: +7.1 },
+  { name: 'Gov Bonds',      ticker: 'TLT',  pct: 14, color: '#5b8fd4', ret: -1.3 },
+  { name: 'Gold',           ticker: 'GLD',  pct: 11, color: '#a07830', ret: +2.8 },
+  { name: 'Commodities',    ticker: 'DBC',  pct:  8, color: '#8f6a3a', ret: +1.1 },
+  { name: 'Emerging Mkt',  ticker: 'EEM',  pct:  7, color: '#4caf7a', ret: +3.6 },
+  { name: 'BTC Exposure',   ticker: 'IBIT', pct:  4, color: '#cf8f4f', ret: +12.4 },
+];
+
+/* Asset rows */
+const rowsEl = document.getElementById('assetRows');
+rowsEl.innerHTML = assets.map(a => `
+  <div class="asset-row">
+    <div class="asset-swatch" style="background:${a.color}"></div>
+    <div class="asset-name">${a.name}</div>
+    <div class="asset-ticker">${a.ticker}</div>
+    <div class="asset-bar-wrap">
+      <div class="asset-bar" style="width:0%;background:${a.color}" data-w="${a.pct}"></div>
+    </div>
+    <div class="asset-pct">${a.pct}%</div>
+    <div class="asset-ret ${a.ret >= 0 ? 'up':'dn'}">${a.ret >= 0 ? '+':''}${a.ret}%</div>
+  </div>
+`).join('');
+
+setTimeout(() => {
+  document.querySelectorAll('.asset-bar').forEach(b => {
+    b.style.width = b.dataset.w + '%';
+  });
+}, 300);
+
+/* ═══════════════════════════════════════════
+   ARC / DONUT CHART
+═══════════════════════════════════════════ */
+const arcCv = document.getElementById('arcCanvas');
+const arctx = arcCv.getContext('2d');
+const ARC_R = 82, ARC_CX = 100, ARC_CY = 100;
+
+function drawArc(allocations) {
+  arctx.clearRect(0, 0, 200, 200);
+  let start = -Math.PI / 2;
+  const gap = 0.025;
+  allocations.forEach(a => {
+    const sweep = (a.pct / 100) * Math.PI * 2 - gap;
+    arctx.beginPath();
+    arctx.moveTo(ARC_CX, ARC_CY);
+    arctx.arc(ARC_CX, ARC_CY, ARC_R, start, start + sweep);
+    arctx.closePath();
+    arctx.fillStyle = a.color;
+    arctx.fill();
+
+    // Inner mask
+    arctx.beginPath();
+    arctx.arc(ARC_CX, ARC_CY, 54, 0, Math.PI * 2);
+    arctx.fillStyle = '#1a1814';
+    arctx.fill();
+
+    start += sweep + gap;
+  });
+
+  // Outer ring
+  arctx.beginPath();
+  arctx.arc(ARC_CX, ARC_CY, ARC_R + 4, 0, Math.PI * 2);
+  arctx.strokeStyle = 'rgba(201,168,76,0.12)';
+  arctx.lineWidth = 1;
+  arctx.stroke();
+}
+
+drawArc(assets);
+
+/* ═══════════════════════════════════════════
+   EFFICIENT FRONTIER
+═══════════════════════════════════════════ */
+const fCv = document.getElementById('frontierCanvas');
+const fCtx = fCv.getContext('2d');
+let ppoPoint = { x: 0.113, y: 0.317 }; // risk, return
+let ppoTarget = { x: 0.113, y: 0.317 };
+
+function resizeFrontier() {
+  fCv.width = fCv.offsetWidth * devicePixelRatio;
+  fCv.height = 380 * devicePixelRatio;
+  fCv.style.height = '380px';
+  fCtx.scale(devicePixelRatio, devicePixelRatio);
+}
+resizeFrontier();
+window.addEventListener('resize', () => { resizeFrontier(); drawFrontier(); });
+
+// Random portfolio cloud
+const cloudPts = Array.from({ length: 320 }, () => ({
+  x: 0.06 + Math.random() * 0.28,
+  y: -0.05 + Math.random() * 0.42,
+})).filter(p => p.y < p.x * 2.2 + 0.05);
+
+// Efficient frontier curve points
+const frontierPts = (() => {
+  const pts = [];
+  for (let i = 0; i <= 60; i++) {
+    const risk = 0.06 + (i / 60) * 0.26;
+    const ret  = -0.01 + Math.sqrt(Math.max(0, risk - 0.06)) * 1.18 + 0.04;
+    pts.push({ x: risk, y: Math.min(ret, 0.42) });
+  }
+  return pts;
+})();
+
+// Benchmarks
+const benchmarks = [
+  { label: '60/40',   x: 0.10, y: 0.18 },
+  { label: 'SPY',     x: 0.16, y: 0.18 },
+  { label: 'NASDAQ',  x: 0.22, y: 0.28 },
+];
+
+const optimalPt = { x: 0.095, y: 0.268 }; // max sharpe on frontier
+
+let agentPath = [{ ...ppoPoint }];
+
+function toFCanvas(px, py) {
+  const W = fCv.offsetWidth, H = 380;
+  const pad = { l: 52, r: 24, t: 20, b: 44 };
+  const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
+  const minX = 0.04, maxX = 0.36, minY = -0.08, maxY = 0.46;
+  return {
+    x: pad.l + ((px - minX) / (maxX - minX)) * cW,
+    y: pad.t + (1 - (py - minY) / (maxY - minY)) * cH,
+  };
+}
+
+function drawFrontier() {
+  const W = fCv.offsetWidth, H = 380;
+  fCtx.clearRect(0, 0, W, H);
+
+  const pad = { l: 52, r: 24, t: 20, b: 44 };
+
+  // BG subtle gradient
+  const bgGrad = fCtx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, 'rgba(201,168,76,0.02)');
+  bgGrad.addColorStop(1, 'transparent');
+  fCtx.fillStyle = bgGrad;
+  fCtx.fillRect(0, 0, W, H);
+
+  // Grid
+  fCtx.strokeStyle = 'rgba(46,43,36,0.7)';
+  fCtx.lineWidth = 1;
+  fCtx.setLineDash([3, 5]);
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.t + (i / 5) * (H - pad.t - pad.b);
+    fCtx.beginPath(); fCtx.moveTo(pad.l, y); fCtx.lineTo(W - pad.r, y); fCtx.stroke();
+    const x = pad.l + (i / 5) * (W - pad.l - pad.r);
+    fCtx.beginPath(); fCtx.moveTo(x, pad.t); fCtx.lineTo(x, H - pad.b); fCtx.stroke();
+  }
+  fCtx.setLineDash([]);
+
+  // Axis labels
+  fCtx.font = `9px 'DM Mono', monospace`;
+  fCtx.fillStyle = '#5a5448';
+  fCtx.textAlign = 'center';
+  fCtx.fillText('RISK (σ)', W / 2, H - 6);
+  fCtx.save();
+  fCtx.translate(14, H / 2);
+  fCtx.rotate(-Math.PI / 2);
+  fCtx.fillText('RETURN', 0, 0);
+  fCtx.restore();
+
+  // Axis values
+  fCtx.textAlign = 'right';
+  fCtx.fillStyle = '#5a5448';
+  ['6%','14%','22%','30%','38%'].forEach((v, i) => {
+    const x = pad.l + (i / 4) * (W - pad.l - pad.r);
+    fCtx.textAlign = 'center';
+    fCtx.fillText(v, x, H - pad.b + 16);
+  });
+  fCtx.textAlign = 'right';
+  ['40%','30%','20%','10%','0%','-8%'].forEach((v, i) => {
+    const y = pad.t + (i / 5) * (H - pad.t - pad.b);
+    fCtx.fillText(v, pad.l - 8, y + 3);
+  });
+
+  // Cloud
+  cloudPts.forEach(p => {
+    const { x, y } = toFCanvas(p.x, p.y);
+    fCtx.beginPath();
+    fCtx.arc(x, y, 2.5, 0, Math.PI * 2);
+    fCtx.fillStyle = 'rgba(91,143,212,0.2)';
+    fCtx.fill();
+  });
+
+  // Frontier area fill
+  fCtx.beginPath();
+  frontierPts.forEach((p, i) => {
+    const { x, y } = toFCanvas(p.x, p.y);
+    i === 0 ? fCtx.moveTo(x, y) : fCtx.lineTo(x, y);
+  });
+  const last = toFCanvas(frontierPts[frontierPts.length-1].x, frontierPts[frontierPts.length-1].y);
+  const first = toFCanvas(frontierPts[0].x, frontierPts[0].y);
+  fCtx.lineTo(last.x, H - pad.b);
+  fCtx.lineTo(first.x, H - pad.b);
+  fCtx.closePath();
+  const fillGrad = fCtx.createLinearGradient(0, pad.t, 0, H);
+  fillGrad.addColorStop(0, 'rgba(201,168,76,0.12)');
+  fillGrad.addColorStop(1, 'rgba(201,168,76,0)');
+  fCtx.fillStyle = fillGrad;
+  fCtx.fill();
+
+  // Frontier line
+  fCtx.beginPath();
+  frontierPts.forEach((p, i) => {
+    const { x, y } = toFCanvas(p.x, p.y);
+    i === 0 ? fCtx.moveTo(x, y) : fCtx.lineTo(x, y);
+  });
+  fCtx.strokeStyle = 'rgba(201,168,76,0.6)';
+  fCtx.lineWidth = 2;
+  fCtx.stroke();
+
+  // Agent path
+  if (agentPath.length > 1) {
+    fCtx.beginPath();
+    agentPath.forEach((p, i) => {
+      const { x, y } = toFCanvas(p.x, p.y);
+      i === 0 ? fCtx.moveTo(x, y) : fCtx.lineTo(x, y);
+    });
+    fCtx.strokeStyle = 'rgba(201,168,76,0.25)';
+    fCtx.lineWidth = 1.5;
+    fCtx.setLineDash([3, 4]);
+    fCtx.stroke();
+    fCtx.setLineDash([]);
+  }
+
+  // Benchmarks
+  benchmarks.forEach(b => {
+    const { x, y } = toFCanvas(b.x, b.y);
+    fCtx.beginPath();
+    fCtx.arc(x, y, 6, 0, Math.PI * 2);
+    fCtx.fillStyle = 'rgba(91,143,212,0.7)';
+    fCtx.fill();
+    fCtx.font = `9px 'DM Mono', monospace`;
+    fCtx.fillStyle = 'rgba(91,143,212,0.9)';
+    fCtx.textAlign = 'left';
+    fCtx.fillText(b.label, x + 10, y + 4);
+  });
+
+  // Optimal (MVO)
+  const opt = toFCanvas(optimalPt.x, optimalPt.y);
+  fCtx.beginPath();
+  fCtx.arc(opt.x, opt.y, 7, 0, Math.PI * 2);
+  fCtx.fillStyle = 'rgba(76,175,122,0.8)';
+  fCtx.fill();
+  fCtx.strokeStyle = 'rgba(76,175,122,0.4)';
+  fCtx.lineWidth = 8;
+  fCtx.beginPath();
+  fCtx.arc(opt.x, opt.y, 12, 0, Math.PI * 2);
+  fCtx.stroke();
+  fCtx.font = `9px 'DM Mono', monospace`;
+  fCtx.fillStyle = 'var(--green)';
+  fCtx.textAlign = 'left';
+  fCtx.fillText('MVO Optimal', opt.x + 16, opt.y + 4);
+
+  // PPO Agent
+  const ppo = toFCanvas(ppoPoint.x, ppoPoint.y);
+  // Glow rings
+  [24, 16, 10].forEach((r, i) => {
+    fCtx.beginPath();
+    fCtx.arc(ppo.x, ppo.y, r, 0, Math.PI * 2);
+    fCtx.strokeStyle = `rgba(232,200,122,${0.08 + i * 0.06})`;
+    fCtx.lineWidth = 1;
+    fCtx.stroke();
+  });
+  fCtx.beginPath();
+  fCtx.arc(ppo.x, ppo.y, 8, 0, Math.PI * 2);
+  fCtx.fillStyle = '#e8c87a';
+  fCtx.fill();
+  fCtx.font = `bold 9px 'DM Mono', monospace`;
+  fCtx.fillStyle = '#e8c87a';
+  fCtx.textAlign = 'left';
+  fCtx.fillText('PPO Agent', ppo.x + 14, ppo.y - 6);
+  fCtx.font = `9px 'DM Mono', monospace`;
+  fCtx.fillStyle = '#5a5448';
+  fCtx.fillText(`σ ${(ppoPoint.x*100).toFixed(1)}%  r ${(ppoPoint.y*100).toFixed(1)}%`, ppo.x + 14, ppo.y + 8);
+
+  requestAnimationFrame(drawFrontier);
+}
+
+// Animate PPO point
+setInterval(() => {
+  const nx = 0.085 + Math.random() * 0.06;
+  const ny = 0.22  + Math.random() * 0.12;
+  ppoTarget = { x: nx, y: ny };
+}, 3000);
+
+function animatePPO() {
+  const alpha = 0.03;
+  ppoPoint.x += (ppoTarget.x - ppoPoint.x) * alpha;
+  ppoPoint.y += (ppoTarget.y - ppoPoint.y) * alpha;
+  agentPath.push({ ...ppoPoint });
+  if (agentPath.length > 60) agentPath.shift();
+  requestAnimationFrame(animatePPO);
+}
+animatePPO();
+drawFrontier();
+
+/* ═══════════════════════════════════════════
+   REWARD CURVE
+═══════════════════════════════════════════ */
+const rCv = document.getElementById('rewardCanvas');
+const rCtx = rCv.getContext('2d');
+
+function resizeReward() {
+  rCv.width  = rCv.offsetWidth * devicePixelRatio;
+  rCv.height = 180 * devicePixelRatio;
+  rCv.style.height = '180px';
+  rCtx.scale(devicePixelRatio, devicePixelRatio);
+}
+resizeReward();
+
+// Simulate reward convergence
+let rewardData = [];
+for (let i = 0; i < 100; i++) {
+  const base = 150 + (i / 100) * 700;
+  const noise = (Math.random() - 0.5) * 120 * Math.exp(-i * 0.025);
+  rewardData.push(Math.max(0, base + noise));
+}
+
+function drawReward() {
+  const W = rCv.offsetWidth, H = 180;
+  rCtx.clearRect(0, 0, W, H);
+  const pad = { l: 32, r: 12, t: 12, b: 28 };
+  const cW = W - pad.l - pad.r, cH = H - pad.t - pad.b;
+  const minV = 0, maxV = 900;
+
+  function tX(i) { return pad.l + (i / (rewardData.length - 1)) * cW; }
+  function tY(v) { return pad.t + (1 - (v - minV) / (maxV - minV)) * cH; }
+
+  // Grid
+  rCtx.strokeStyle = 'rgba(46,43,36,0.6)';
+  rCtx.lineWidth = 1;
+  rCtx.setLineDash([2, 4]);
+  [0, 300, 600, 900].forEach(v => {
+    const y = tY(v);
+    rCtx.beginPath(); rCtx.moveTo(pad.l, y); rCtx.lineTo(pad.l + cW, y); rCtx.stroke();
+    rCtx.fillStyle = '#5a5448';
+    rCtx.font = `8px 'DM Mono'`;
+    rCtx.textAlign = 'right';
+    rCtx.fillText(v, pad.l - 6, y + 3);
+  });
+  rCtx.setLineDash([]);
+
+  // Area
+  const aGrad = rCtx.createLinearGradient(0, pad.t, 0, H);
+  aGrad.addColorStop(0, 'rgba(201,168,76,0.25)');
+  aGrad.addColorStop(1, 'rgba(201,168,76,0)');
+  rCtx.beginPath();
+  rewardData.forEach((v, i) => i === 0 ? rCtx.moveTo(tX(i), tY(v)) : rCtx.lineTo(tX(i), tY(v)));
+  rCtx.lineTo(tX(rewardData.length - 1), pad.t + cH);
+  rCtx.lineTo(tX(0), pad.t + cH);
+  rCtx.closePath();
+  rCtx.fillStyle = aGrad;
+  rCtx.fill();
+
+  // Line
+  rCtx.beginPath();
+  rewardData.forEach((v, i) => i === 0 ? rCtx.moveTo(tX(i), tY(v)) : rCtx.lineTo(tX(i), tY(v)));
+  rCtx.strokeStyle = '#c9a84c';
+  rCtx.lineWidth = 2;
+  rCtx.stroke();
+
+  // Axis label
+  rCtx.fillStyle = '#5a5448';
+  rCtx.font = `8px 'DM Mono'`;
+  rCtx.textAlign = 'center';
+  rCtx.fillText('Training Episodes (×1K)', W / 2, H - 6);
+}
+
+drawReward();
+
+setInterval(() => {
+  const last = rewardData[rewardData.length - 1];
+  rewardData.push(Math.min(900, last + (Math.random() - 0.4) * 18));
+  rewardData.shift();
+  drawReward();
+  document.getElementById('rewardVal').textContent = rewardData[rewardData.length-1].toFixed(1);
+}, 900);
+
+/* ═══════════════════════════════════════════
+   RISK METRICS
+═══════════════════════════════════════════ */
+const risks = [
+  { name: 'VaR (95%)',     val: 3.2,  max: 10, color: '#c9a84c', unit: '%' },
+  { name: 'CVaR (95%)',    val: 4.8,  max: 10, color: '#cf4f4f', unit: '%' },
+  { name: 'Beta',          val: 0.72, max: 2,  color: '#5b8fd4', unit: '' },
+  { name: 'Sortino',       val: 3.14, max: 5,  color: '#4caf7a', unit: '' },
+  { name: 'Calmar',        val: 3.87, max: 6,  color: '#e8c87a', unit: '' },
+  { name: 'Info Ratio',    val: 1.62, max: 3,  color: '#a07830', unit: '' },
+];
+
+const riskEl = document.getElementById('riskMeter');
+riskEl.innerHTML = risks.map(r => `
+  <div class="risk-row">
+    <div class="risk-header">
+      <div class="risk-name">${r.name}</div>
+      <div class="risk-score" style="color:${r.color}">${r.val}${r.unit}</div>
+    </div>
+    <div class="risk-bar-track">
+      <div class="risk-bar-fill" style="width:0%;background:${r.color}" data-w="${(r.val/r.max)*100}"></div>
+    </div>
+  </div>
+`).join('');
+
+setTimeout(() => {
+  document.querySelectorAll('.risk-bar-fill').forEach(b => {
+    b.style.width = b.dataset.w + '%';
+  });
+}, 500);
+
+/* ═══════════════════════════════════════════
+   REBALANCE LOG
+═══════════════════════════════════════════ */
+const actions = [
+  { a: 'Increased SPY +4.2% → regime shift detected', pnl: '+$12,400', up: true },
+  { a: 'Reduced TLT -3.1% → rate hike signal', pnl: '+$8,200',  up: true },
+  { a: 'Added GLD +2.0% → inflation hedge', pnl: '+$5,100',  up: true },
+  { a: 'Cut EEM -1.8% → EM volatility spike', pnl: '-$2,300',  up: false },
+  { a: 'Initiated IBIT +1.0% → uncorrelated asset', pnl: '+$6,700',  up: true },
+  { a: 'Reduced QQQ -2.4% → earnings risk', pnl: '+$4,400',  up: true },
+  { a: 'Increased DBC +1.2% → supply shock', pnl: '+$3,100',  up: true },
+];
+
+const logEl = document.getElementById('rebalLog');
+
+function addRebalEntry() {
+  const a = actions[Math.floor(Math.random() * actions.length)];
+  const ts = new Date().toTimeString().substr(0, 8);
+  const item = document.createElement('div');
+  item.className = 'rebal-item';
+  item.innerHTML = `
+    <div class="rebal-time">${ts}</div>
+    <div class="rebal-action">${a.a}</div>
+    <div class="rebal-pnl ${a.up ? 'up' : 'dn'}">${a.pnl}</div>
+  `;
+  logEl.insertBefore(item, logEl.firstChild);
+  if (logEl.children.length > 7) logEl.removeChild(logEl.lastChild);
+}
+
+for (let i = 0; i < 5; i++) setTimeout(addRebalEntry, i * 200);
+setInterval(addRebalEntry, 4500);
+
+/* ═══════════════════════════════════════════
+   REBALANCE TRIGGER
+═══════════════════════════════════════════ */
+function triggerRebalance() {
+  const newAllocs = assets.map(a => ({
+    ...a,
+    pct: Math.max(2, Math.min(45, a.pct + Math.floor((Math.random() - 0.5) * 8)))
+  }));
+  const total = newAllocs.reduce((s, a) => s + a.pct, 0);
+  newAllocs.forEach(a => a.pct = Math.round(a.pct / total * 100));
+
+  // Update bars
+  document.querySelectorAll('.asset-bar').forEach((b, i) => {
+    b.style.width = newAllocs[i].pct + '%';
+    b.closest('.asset-row').querySelector('.asset-pct').textContent = newAllocs[i].pct + '%';
+  });
+
+  // Update arcs
+  drawArc(newAllocs);
+  addRebalEntry();
+
+  // Flash button
+  const btn = document.querySelector('.rebal-btn');
+  btn.textContent = '✓  Rebalanced';
+  btn.style.color = 'var(--green)';
+  btn.style.borderColor = 'rgba(76,175,122,0.5)';
+  setTimeout(() => {
+    btn.textContent = '⟳  Trigger Rebalance';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+  }, 1800);
+}
+
+/* ═══════════════════════════════════════════
+   LIVE COUNTERS
+═══════════════════════════════════════════ */
+let portVal = 4.83;
+setInterval(() => {
+  portVal += (Math.random() - 0.46) * 0.008;
+  portVal = Math.max(4.6, Math.min(5.2, portVal));
+  document.getElementById('portValue').textContent = '$' + portVal.toFixed(2) + 'M';
+  document.getElementById('aumVal').textContent = '$' + portVal.toFixed(2) + 'M';
+  const delta = ((portVal - 4.83) / 4.83 * 100);
+  const el = document.getElementById('portDelta');
+  el.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(2) + '%';
+  el.className = 'm-delta ' + (delta >= 0 ? 'up' : 'dn');
+}, 1200);
+
+let ep = 12847;
+setInterval(() => {
+  ep += Math.floor(Math.random() * 3);
+  document.getElementById('episodeVal').textContent = ep.toLocaleString();
+}, 1800);
+
+/* Clock */
+function tick() {
+  const ts = new Date().toISOString().replace('T', ' ').substr(0, 19);
+  document.getElementById('footerTime').textContent = `© Portfolio Optimizer · ${ts} UTC`;
+}
+setInterval(tick, 1000);
+tick();
+</script>
+</body>
+</html>
