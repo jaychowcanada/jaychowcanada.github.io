@@ -3,78 +3,257 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to My GitHub Page</title>
+    <title>ML Engineer | Fintech Specialist Portfolio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono&display=swap');
+        
+        :root {
+            --fintech-blue: #0ea5e9;
+            --fintech-green: #10b981;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-            color: #333;
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
         }
-        header {
-            background-color: #333;
-            color: #fff;
-            padding: 1em 0;
-            text-align: center;
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease, border-color 0.3s ease;
         }
-        .container {
-            max-width: 800px;
-            margin: 2em auto;
-            padding: 1em;
-            background-color: #fff;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--fintech-blue);
         }
-        h1, h2 {
-            color: #333;
+
+        .gradient-text {
+            background: linear-gradient(90deg, #0ea5e9, #10b981);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
-        ul {
-            list-style: none;
-            padding: 0;
+
+        .hero-glow {
+            position: absolute;
+            top: -10%;
+            right: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(14, 165, 233, 0.15) 0%, rgba(15, 23, 42, 0) 70%);
+            z-index: -1;
         }
-        li {
-            margin: 0.5em 0;
-        }
-        a {
-            color: #007BFF;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        .social-links a {
-            margin-right: 1em;
+
+        .chart-bar {
+            transition: width 1.5s ease-in-out;
         }
     </style>
 </head>
-<body>
-    <header>
-        <h1>Welcome to My GitHub Page</h1>
-    </header>
-    <div class="container">
-        <section>
-            <h2>About Me</h2>
-            <p>Hello! I'm Jay, a passionate developer with a love for creating innovative solutions. Welcome to my GitHub page where you can find some of my projects and learn more about my work.</p>
-        </section>
-        <section>
-            <h2>Projects</h2>
-            <ul>
-                <li><a href="https://github.com/username/project1">Project 1</a> - A brief description of Project 1.</li>
-                <li><a href="https://github.com/username/project2">Project 2</a> - A brief description of Project 2.</li>
-                <li><a href="https://github.com/username/project3">Project 3</a> - A brief description of Project 3.</li>
-                <!-- Add more projects as needed -->
-            </ul>
-        </section>
-        <section>
-            <h2>Contact & Social Media</h2>
-            <p>You can reach me via email at <a href="mailto:youremail@example.com">youremail@example.com</a> or connect with me on social media:</p>
-            <div class="social-links">
-                <a href="https://twitter.com/yourusername">Twitter</a>
-                <a href="https://linkedin.com/in/yourusername">LinkedIn</a>
-                <a href="https://github.com/yourusername">GitHub</a>
-                <!-- Add more social media links as needed -->
+<body class="antialiased">
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 px-6 py-4 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="text-xl font-bold mono tracking-tighter">
+                <span class="text-sky-500">&gt;</span> ML_ENGINEER<span class="animate-pulse">_</span>
+            </div>
+            <div class="hidden md:flex space-x-8 text-sm font-medium text-slate-400 items-center">
+                <a href="#about" class="hover:text-sky-400 transition">Strategy</a>
+                <a href="#projects" class="hover:text-sky-400 transition">Models</a>
+                <a href="#stack" class="hover:text-sky-400 transition">Stack</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-glow"></div>
+
+    <main class="max-w-7xl mx-auto px-6 pt-32">
+        
+        <!-- Hero Section -->
+        <section id="about" class="mb-24">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h2 class="text-sky-500 font-bold mono mb-4 tracking-widest uppercase text-sm">Fintech & Machine Learning</h2>
+                    <h1 class="text-5xl md:text-6xl font-extrabold mb-6 leading-tight">
+                        Optimizing <span class="gradient-text">Alpha</span> through Robust Intelligence.
+                    </h1>
+                    <p class="text-slate-400 text-lg mb-8 leading-relaxed max-w-lg">
+                        Specializing in high-frequency signal processing, credit risk modeling, and fraud detection systems that scale to millions of transactions.
+                    </p>
+                    <div class="flex flex-wrap gap-4">
+                        <div class="px-4 py-2 glass-card rounded-full text-xs font-semibold mono">
+                            <i class="fas fa-shield-halved text-emerald-400 mr-2"></i> RISK MANAGEMENT
+                        </div>
+                        <div class="px-4 py-2 glass-card rounded-full text-xs font-semibold mono">
+                            <i class="fas fa-chart-line text-sky-400 mr-2"></i> PREDICTIVE ANALYTICS
+                        </div>
+                        <div class="px-4 py-2 glass-card rounded-full text-xs font-semibold mono">
+                            <i class="fas fa-microchip text-purple-400 mr-2"></i> MLOPS
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-8 rounded-2xl relative overflow-hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="mono text-xs text-slate-500">SYSTEM_METRICS.LOG</h3>
+                        <div class="flex space-x-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        </div>
+                    </div>
+                    <div class="space-y-6">
+                        <div>
+                            <div class="flex justify-between text-xs mono mb-2">
+                                <span>Fraud Detection Precision</span>
+                                <span class="text-emerald-400">99.8%</span>
+                            </div>
+                            <div class="w-full bg-slate-800 rounded-full h-1.5">
+                                <div class="bg-emerald-500 h-1.5 rounded-full" style="width: 99.8%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mono mb-2">
+                                <span>Inference Latency (P99)</span>
+                                <span class="text-sky-400">14ms</span>
+                            </div>
+                            <div class="w-full bg-slate-800 rounded-full h-1.5">
+                                <div class="bg-sky-500 h-1.5 rounded-full" style="width: 85%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mono mb-2">
+                                <span>Default Prediction (ROC AUC)</span>
+                                <span class="text-purple-400">0.942</span>
+                            </div>
+                            <div class="w-full bg-slate-800 rounded-full h-1.5">
+                                <div class="bg-purple-500 h-1.5 rounded-full" style="width: 94%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
-    </div>
+
+        <!-- Projects Grid -->
+        <section id="projects" class="mb-24">
+            <h2 class="text-3xl font-bold mb-12 flex items-center">
+                <span class="w-8 h-1 bg-sky-500 mr-4 rounded"></span>
+                Featured Implementations
+            </h2>
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Project 1 -->
+                <div class="glass-card p-6 rounded-xl group">
+                    <div class="w-12 h-12 bg-sky-500/10 rounded-lg flex items-center justify-center mb-6 group-hover:bg-sky-500/20 transition">
+                        <i class="fas fa-coins text-sky-500 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Credit Scoring 2.0</h3>
+                    <p class="text-slate-400 text-sm mb-6">
+                        XGBoost & LightGBM ensemble for predicting loan defaults using alternative data sources, reducing NPLs by 18%.
+                    </p>
+                    <div class="flex justify-between items-center mt-auto">
+                        <span class="text-xs mono text-slate-500">PyTorch | Scikit-learn</span>
+                        <a href="#" class="text-sky-400 hover:text-sky-300"><i class="fab fa-github"></i></a>
+                    </div>
+                </div>
+
+                <!-- Project 2 -->
+                <div class="glass-card p-6 rounded-xl group">
+                    <div class="w-12 h-12 bg-emerald-500/10 rounded-lg flex items-center justify-center mb-6 group-hover:bg-emerald-500/20 transition">
+                        <i class="fas fa-user-shield text-emerald-500 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Real-time Fraud Shield</h3>
+                    <p class="text-slate-400 text-sm mb-6">
+                        LSTM-based anomaly detection processing 5k+ tps with Kafka integration and Redis feature store.
+                    </p>
+                    <div class="flex justify-between items-center mt-auto">
+                        <span class="text-xs mono text-slate-500">Spark | Kafka | Redis</span>
+                        <a href="#" class="text-sky-400 hover:text-sky-300"><i class="fab fa-github"></i></a>
+                    </div>
+                </div>
+
+                <!-- Project 3 -->
+                <div class="glass-card p-6 rounded-xl group">
+                    <div class="w-12 h-12 bg-purple-500/10 rounded-lg flex items-center justify-center mb-6 group-hover:bg-purple-500/20 transition">
+                        <i class="fas fa-brain text-purple-500 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold mb-3">Portfolio Optimizer</h3>
+                    <p class="text-slate-400 text-sm mb-6">
+                        Reinforcement Learning (PPO) agent for dynamic asset allocation and risk-adjusted return maximization.
+                    </p>
+                    <div class="flex justify-between items-center mt-auto">
+                        <span class="text-xs mono text-slate-500">Gym | TensorFlow</span>
+                        <a href="#" class="text-sky-400 hover:text-sky-300"><i class="fab fa-github"></i></a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tech Stack -->
+        <section id="stack" class="mb-24 py-16 bg-slate-800/30 rounded-3xl px-12 text-center">
+            <h2 class="text-sm font-bold mono text-slate-500 uppercase tracking-widest mb-12">Core Technology Stack</h2>
+            <div class="flex flex-wrap justify-center gap-12 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
+                <div class="flex flex-col items-center">
+                    <i class="fab fa-python text-4xl mb-2"></i>
+                    <span class="text-[10px] mono">PYTHON</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <i class="fas fa-database text-4xl mb-2"></i>
+                    <span class="text-[10px] mono">SQL/NOSQL</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <i class="fab fa-aws text-4xl mb-2"></i>
+                    <span class="text-[10px] mono">AWS/SAGEMAKER</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <i class="fab fa-docker text-4xl mb-2"></i>
+                    <span class="text-[10px] mono">DOCKER</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <i class="fas fa-cubes text-4xl mb-2"></i>
+                    <span class="text-[10px] mono">KUBERNETES</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact / CTA -->
+        <section class="text-center mb-32">
+            <div class="max-w-2xl mx-auto glass-card p-12 rounded-3xl border-t-4 border-t-sky-500">
+                <h2 class="text-4xl font-bold mb-4">Ready to build secure, intelligent finance?</h2>
+                <p class="text-slate-400 mb-8">Currently open to roles in Trading Platforms, Neo-banks, and Payment Processors.</p>
+                <div class="flex flex-col md:flex-row gap-4 justify-center">
+                    <a href="mailto:your.email@example.com" class="bg-sky-600 hover:bg-sky-500 text-white px-8 py-4 rounded-xl font-bold transition flex items-center justify-center">
+                        <i class="fas fa-envelope mr-2"></i> Get in Touch
+                    </a>
+                    <a href="https://linkedin.com/in/yourprofile" class="bg-slate-700 hover:bg-slate-600 text-white px-8 py-4 rounded-xl font-bold transition flex items-center justify-center">
+                        <i class="fab fa-linkedin mr-2"></i> LinkedIn
+                    </a>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="py-12 border-t border-slate-800 text-center text-slate-500 text-xs mono">
+        <p>&copy; 2024 Built with ❤️ and <span class="text-sky-500">Stochastic Gradient Descent</span></p>
+    </footer>
+
+    <script>
+        // Simple scroll reveal or subtle interactions can be added here
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
 </body>
 </html>
