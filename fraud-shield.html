@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fraud Shield — Real-Time Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #060608;
+    --surface: #0c0d12;
+    --s2:      #101218;
+    --border:  #1c1f2e;
+    --red:     #ff2244;
+    --red-dim: #7a0f20;
+    --amber:   #ffaa00;
+    --green:   #00ff88;
+    --blue:    #0af;
+    --text:    #c8d4e8;
+    --muted:   #3a4560;
+    --scan:    rgba(255,34,68,0.06);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: crosshair;
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* Vignette */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.7) 100%);
+    pointer-events: none;
+    z-index: 998;
+  }
+
+  .shell {
+    position: relative;
+    z-index: 1;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 24px 28px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    animation: fadeIn .5s ease both;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .shield-icon {
+    width: 52px; height: 52px;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .shield-icon svg { width: 100%; height: 100%; }
+
+  @keyframes shieldPulse {
+    0%,100% { filter: drop-shadow(0 0 6px rgba(255,34,68,0.8)); }
+    50%      { filter: drop-shadow(0 0 18px rgba(255,34,68,1)); }
+  }
+
+  .shield-icon svg { animation: shieldPulse 2s infinite; }
+
+  h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(20px, 3vw, 32px);
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: #fff;
+    text-transform: uppercase;
+  }
+
+  h1 em {
+    color: var(--red);
+    font-style: normal;
+  }
+
+  .tagline {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .sys-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+  .dot.red   { background: var(--red);   box-shadow: 0 0 6px var(--red);   animation: blink .8s infinite; }
+
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .threat-level {
+    padding: 10px 20px;
+    border: 1px solid var(--red);
+    background: rgba(255,34,68,0.08);
+    border-radius: 4px;
+    text-align: center;
+  }
+
+  .tl-label {
+    font-size: 8px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .tl-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--amber);
+    letter-spacing: 2px;
+  }
+
+  /* ── KPI BAR ── */
+  .kpi-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+    animation: fadeIn .6s .1s ease both;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .3s;
+  }
+
+  .kpi:hover { border-color: var(--red); }
+
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+  }
+
+  .kpi.r::before { background: var(--red); }
+  .kpi.g::before { background: var(--green); }
+  .kpi.a::before { background: var(--amber); }
+  .kpi.b::before { background: var(--blue); }
+
+  .kpi-lbl {
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .kpi-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .kpi-val.r { color: var(--red); }
+  .kpi-val.g { color: var(--green); }
+  .kpi-val.a { color: var(--amber); }
+  .kpi-val.b { color: var(--blue); }
+  .kpi-val.w { color: #fff; }
+
+  .kpi-sub {
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 6px;
+    letter-spacing: 1px;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: grid;
+    grid-template-columns: 340px 1fr 280px;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px;
+    animation: fadeIn .7s .2s ease both;
+    transition: border-color .3s;
+  }
+
+  .panel:hover { border-color: rgba(255,34,68,0.3); }
+
+  .panel-hd {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .panel-hd::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── RADAR ── */
+  .radar-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 8px 0 16px;
+    position: relative;
+  }
+
+  #radarCanvas {
+    border-radius: 50%;
+  }
+
+  .radar-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .rs {
+    background: var(--s2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+
+  .rs-v {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--red);
+  }
+
+  .rs-l {
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-top: 4px;
+    text-transform: uppercase;
+  }
+
+  /* ── STREAM FEED ── */
+  .feed-wrap {
+    height: 420px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .feed-wrap::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: linear-gradient(transparent, var(--surface));
+    pointer-events: none;
+  }
+
+  .txn-row {
+    display: grid;
+    grid-template-columns: 70px 90px 1fr 80px 80px 70px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(28,31,46,0.6);
+    font-size: 11px;
+    animation: slideIn .3s ease both;
+    transition: background .2s;
+  }
+
+  .txn-row:hover { background: rgba(255,34,68,0.04); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  .txn-hd {
+    display: grid;
+    grid-template-columns: 70px 90px 1fr 80px 80px 70px;
+    gap: 8px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 9px;
+    letter-spacing: 1px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .badge.fraud  { background: rgba(255,34,68,.18);  color: var(--red);   border: 1px solid rgba(255,34,68,.3); }
+  .badge.legit  { background: rgba(0,255,136,.08);  color: var(--green); border: 1px solid rgba(0,255,136,.2); }
+  .badge.review { background: rgba(255,170,0,.1);   color: var(--amber); border: 1px solid rgba(255,170,0,.3); }
+
+  .score-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 3px;
+  }
+
+  .score-fill { height: 100%; border-radius: 2px; }
+
+  /* ── MODEL PANEL ── */
+  .lstm-viz {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  .lstm-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .lstm-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    width: 60px;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+
+  .lstm-bar-track {
+    flex: 1;
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .lstm-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+  }
+
+  .lstm-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 20px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0%   { opacity: 0; transform: translateX(-20px); }
+    50%  { opacity: 1; }
+    100% { opacity: 0; transform: translateX(0px); }
+  }
+
+  .lstm-pct {
+    font-size: 10px;
+    color: var(--text);
+    width: 32px;
+    text-align: right;
+  }
+
+  /* Kafka / Redis meters */
+  .infra-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .infra-card {
+    background: var(--s2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .infra-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .infra-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--blue);
+  }
+
+  .infra-sub {
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .ring-wrap {
+    position: relative;
+    display: inline-block;
+    width: 64px; height: 64px;
+    margin: 4px auto 8px;
+  }
+
+  .ring-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+
+  .ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--blue);
+    transform: none;
+  }
+
+  /* ── BOTTOM ROW ── */
+  .bottom {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    animation: fadeIn .8s .3s ease both;
+  }
+
+  /* Anomaly timeline */
+  #timelineCanvas { width: 100%; height: 120px; }
+
+  /* Alert log */
+  .alert-log {
+    height: 160px;
+    overflow: hidden;
+  }
+
+  .alert-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(28,31,46,0.5);
+    font-size: 10px;
+    animation: slideIn .3s ease both;
+  }
+
+  .alert-icon {
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .alert-msg { color: var(--text); line-height: 1.5; }
+  .alert-time { color: var(--muted); font-size: 9px; margin-top: 2px; }
+
+  /* Geo heat */
+  .geo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .geo-item {
+    background: var(--s2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    transition: border-color .3s;
+  }
+
+  .geo-item:hover { border-color: var(--red); }
+
+  .geo-country { font-size: 10px; color: var(--text); margin-bottom: 6px; }
+
+  .geo-bar-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 4px;
+  }
+
+  .geo-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--red-dim), var(--red));
+    border-radius: 2px;
+    transition: width 1.5s ease;
+  }
+
+  .geo-count { font-size: 9px; color: var(--muted); }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* TPS counter */
+  .tps-big {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 48px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+
+  .tps-unit {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  footer {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .stack-tags { display: flex; gap: 10px; }
+
+  .st {
+    font-size: 9px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: border-color .3s, color .3s;
+  }
+
+  .st:hover { border-color: var(--red); color: var(--red); }
+
+  .footer-ts {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <div class="shield-icon">
+        <svg viewBox="0 0 52 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M26 2L4 12V30C4 43 14 54 26 58C38 54 48 43 48 30V12L26 2Z"
+            fill="rgba(255,34,68,0.1)" stroke="#ff2244" stroke-width="1.5"/>
+          <path d="M26 14L14 20V30C14 38 19 45 26 48C33 45 38 38 38 30V20L26 14Z"
+            fill="rgba(255,34,68,0.15)" stroke="rgba(255,34,68,0.5)" stroke-width="1"/>
+          <circle cx="26" cy="30" r="5" fill="#ff2244"/>
+          <line x1="26" y1="22" x2="26" y2="28" stroke="#ff2244" stroke-width="1.5"/>
+          <line x1="26" y1="32" x2="26" y2="38" stroke="rgba(255,34,68,0.4)" stroke-width="1"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Fraud <em>Shield</em></h1>
+        <div class="tagline">LSTM Anomaly Detection · Real-Time Stream Processing</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="sys-status">
+        <div class="status-row"><div class="dot green"></div>KAFKA CLUSTER · 12 BROKERS</div>
+        <div class="status-row"><div class="dot green"></div>REDIS FEATURE STORE · ONLINE</div>
+        <div class="status-row"><div class="dot amber"></div>SPARK WORKERS · 48 NODES</div>
+        <div class="status-row"><div class="dot red"></div>3 ALERTS ACTIVE</div>
+      </div>
+      <div class="threat-level">
+        <div class="tl-label">Threat Level</div>
+        <div class="tl-value" id="threatLvl">ELEVATED</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- KPI BAR -->
+  <div class="kpi-bar">
+    <div class="kpi r">
+      <div class="kpi-lbl">Transactions/sec</div>
+      <div class="kpi-val w"><span id="tpsVal">5,284</span></div>
+      <div class="kpi-sub">Peak: 7,910 tps</div>
+    </div>
+    <div class="kpi r">
+      <div class="kpi-lbl">Fraud Blocked</div>
+      <div class="kpi-val r" id="fraudCount">1,847</div>
+      <div class="kpi-sub">Today · $2.3M saved</div>
+    </div>
+    <div class="kpi g">
+      <div class="kpi-lbl">Model Accuracy</div>
+      <div class="kpi-val g">99.2%</div>
+      <div class="kpi-sub">LSTM ensemble</div>
+    </div>
+    <div class="kpi a">
+      <div class="kpi-lbl">False Positive</div>
+      <div class="kpi-val a">0.31%</div>
+      <div class="kpi-sub">Industry avg: 1.8%</div>
+    </div>
+    <div class="kpi b">
+      <div class="kpi-lbl">Avg Latency</div>
+      <div class="kpi-val b">4.2<span style="font-size:14px">ms</span></div>
+      <div class="kpi-sub">P99: 11ms · Redis cache</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- RADAR -->
+    <div class="panel">
+      <div class="panel-hd">Threat Radar</div>
+      <div class="radar-wrap">
+        <canvas id="radarCanvas" width="280" height="280"></canvas>
+      </div>
+      <div class="radar-stats">
+        <div class="rs">
+          <div class="rs-v" id="activeThreats">23</div>
+          <div class="rs-l">Active Threats</div>
+        </div>
+        <div class="rs">
+          <div class="rs-v" style="color:var(--amber)" id="reviewing">7</div>
+          <div class="rs-l">In Review</div>
+        </div>
+        <div class="rs">
+          <div class="rs-v" style="color:var(--green)">99.2%</div>
+          <div class="rs-l">Recall</div>
+        </div>
+        <div class="rs">
+          <div class="rs-v" style="color:var(--blue)">4.2ms</div>
+          <div class="rs-l">Detect Time</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRANSACTION STREAM -->
+    <div class="panel">
+      <div class="panel-hd">Live Transaction Stream</div>
+      <div class="txn-hd">
+        <span>TIME</span>
+        <span>TXN ID</span>
+        <span>DETAILS</span>
+        <span>AMOUNT</span>
+        <span>SCORE</span>
+        <span>STATUS</span>
+      </div>
+      <div class="feed-wrap">
+        <div id="txnFeed"></div>
+      </div>
+    </div>
+
+    <!-- MODEL + INFRA -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="panel">
+        <div class="panel-hd">LSTM Layers</div>
+        <div class="lstm-viz" id="lstmViz"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd">Infrastructure</div>
+        <div class="infra-grid">
+          <div class="infra-card">
+            <div class="infra-title">Kafka</div>
+            <div class="ring-wrap">
+              <svg viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="#1c1f2e" stroke-width="8"/>
+                <circle cx="32" cy="32" r="26" fill="none" stroke="#00aaff" stroke-width="8"
+                  stroke-dasharray="163.4" stroke-dashoffset="40" stroke-linecap="round"/>
+              </svg>
+              <div class="ring-center">76%</div>
+            </div>
+            <div class="infra-sub">Throughput</div>
+          </div>
+          <div class="infra-card">
+            <div class="infra-title">Redis</div>
+            <div class="ring-wrap">
+              <svg viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="26" fill="none" stroke="#1c1f2e" stroke-width="8"/>
+                <circle cx="32" cy="32" r="26" fill="none" stroke="#00ff88" stroke-width="8"
+                  stroke-dasharray="163.4" stroke-dashoffset="28" stroke-linecap="round"/>
+              </svg>
+              <div class="ring-center" style="color:var(--green)">83%</div>
+            </div>
+            <div class="infra-sub">Cache Hit Rate</div>
+          </div>
+          <div class="infra-card" style="grid-column:span 2">
+            <div class="infra-title">Spark Workers</div>
+            <div class="infra-val" id="sparkJobs">48</div>
+            <div class="infra-sub">Active nodes · 2.1TB/hr processed</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ROW -->
+  <div class="bottom">
+
+    <!-- Anomaly Timeline -->
+    <div class="panel">
+      <div class="panel-hd">Anomaly Score · Timeline</div>
+      <canvas id="timelineCanvas"></canvas>
+    </div>
+
+    <!-- Alert Log -->
+    <div class="panel">
+      <div class="panel-hd">Alert Log</div>
+      <div class="alert-log" id="alertLog"></div>
+    </div>
+
+    <!-- Geo Heatmap -->
+    <div class="panel">
+      <div class="panel-hd">Fraud Geography</div>
+      <div class="geo-grid" id="geoGrid"></div>
+    </div>
+
+  </div>
+
+  <footer>
+    <div class="stack-tags">
+      <span class="st">LSTM · PyTorch</span>
+      <span class="st">Apache Kafka</span>
+      <span class="st">Redis 7.2</span>
+      <span class="st">Spark 3.5</span>
+      <span class="st">SHAP Explain</span>
+      <span class="st">Kubernetes</span>
+    </div>
+    <div class="footer-ts" id="footerTs">SYSTEM TIME: --:--:--</div>
+  </footer>
+</div>
+
+<script>
+/* ─── RADAR ─── */
+const radar = document.getElementById('radarCanvas');
+const rctx  = radar.getContext('2d');
+const R = 140, CX = 140, CY = 140;
+let scanAngle = 0;
+let blips = [];
+
+function addBlip() {
+  const angle = Math.random() * Math.PI * 2;
+  const dist  = Math.random() * 0.85 + 0.1;
+  const isFraud = Math.random() < 0.3;
+  blips.push({ angle, dist, life: 1, isFraud });
+}
+
+for (let i = 0; i < 14; i++) addBlip();
+
+function drawRadar() {
+  rctx.clearRect(0, 0, 280, 280);
+
+  // BG
+  rctx.fillStyle = '#060608';
+  rctx.beginPath();
+  rctx.arc(CX, CY, R, 0, Math.PI * 2);
+  rctx.fill();
+
+  // Grid rings
+  for (let i = 1; i <= 4; i++) {
+    rctx.beginPath();
+    rctx.arc(CX, CY, R * i / 4, 0, Math.PI * 2);
+    rctx.strokeStyle = 'rgba(255,34,68,0.12)';
+    rctx.lineWidth = 1;
+    rctx.stroke();
+  }
+
+  // Cross lines
+  rctx.strokeStyle = 'rgba(255,34,68,0.1)';
+  rctx.lineWidth = 1;
+  [0, 45, 90, 135].forEach(deg => {
+    const a = deg * Math.PI / 180;
+    rctx.beginPath();
+    rctx.moveTo(CX - Math.cos(a) * R, CY - Math.sin(a) * R);
+    rctx.lineTo(CX + Math.cos(a) * R, CY + Math.sin(a) * R);
+    rctx.stroke();
+  });
+
+  // Sweep gradient
+  const sweep = rctx.createConicalGradient
+    ? null // not standard, do manual arc
+    : null;
+
+  rctx.save();
+  rctx.translate(CX, CY);
+  for (let i = 0; i < 60; i++) {
+    const a = scanAngle - (i / 60) * (Math.PI * 0.9);
+    const alpha = (1 - i / 60) * 0.35;
+    rctx.beginPath();
+    rctx.moveTo(0, 0);
+    rctx.arc(0, 0, R - 1, a, a + 0.06);
+    rctx.closePath();
+    rctx.fillStyle = `rgba(255,34,68,${alpha})`;
+    rctx.fill();
+  }
+
+  // Sweep line
+  rctx.beginPath();
+  rctx.moveTo(0, 0);
+  rctx.lineTo(Math.cos(scanAngle) * R, Math.sin(scanAngle) * R);
+  rctx.strokeStyle = 'rgba(255,34,68,0.9)';
+  rctx.lineWidth = 1.5;
+  rctx.stroke();
+  rctx.restore();
+
+  // Blips
+  blips.forEach(b => {
+    const bx = CX + Math.cos(b.angle) * R * b.dist;
+    const by = CY + Math.sin(b.angle) * R * b.dist;
+    const col = b.isFraud ? `rgba(255,34,68,${b.life})` : `rgba(0,255,136,${b.life * 0.6})`;
+    rctx.beginPath();
+    rctx.arc(bx, by, b.isFraud ? 5 : 3, 0, Math.PI * 2);
+    rctx.fillStyle = col;
+    rctx.fill();
+    if (b.isFraud) {
+      rctx.beginPath();
+      rctx.arc(bx, by, 10 * (1 - b.life * 0.5), 0, Math.PI * 2);
+      rctx.strokeStyle = `rgba(255,34,68,${b.life * 0.4})`;
+      rctx.lineWidth = 1;
+      rctx.stroke();
+    }
+    b.life -= 0.002;
+  });
+
+  blips = blips.filter(b => b.life > 0);
+
+  // Center dot
+  rctx.beginPath();
+  rctx.arc(CX, CY, 4, 0, Math.PI * 2);
+  rctx.fillStyle = '#ff2244';
+  rctx.fill();
+
+  // Outer border
+  rctx.beginPath();
+  rctx.arc(CX, CY, R, 0, Math.PI * 2);
+  rctx.strokeStyle = 'rgba(255,34,68,0.3)';
+  rctx.lineWidth = 2;
+  rctx.stroke();
+
+  scanAngle += 0.025;
+  requestAnimationFrame(drawRadar);
+}
+drawRadar();
+
+setInterval(() => {
+  if (Math.random() < 0.4) addBlip();
+}, 600);
+
+/* ─── TRANSACTION FEED ─── */
+const merchants = ['Amazon','Netflix','Stripe','PayPal','Shopify','Uber','DoorDash','Binance','Coinbase','Steam','Apple Pay','Venmo'];
+const countries = ['US','UK','DE','NG','RU','CN','BR','MX','FR','UA'];
+const feed = document.getElementById('txnFeed');
+
+function randId() {
+  return 'TXN' + Math.random().toString(36).substr(2,8).toUpperCase();
+}
+
+function addTxn() {
+  const score = Math.random();
+  const isFraud = score > 0.82;
+  const isReview = !isFraud && score > 0.6;
+  const status = isFraud ? 'fraud' : isReview ? 'review' : 'legit';
+  const label = isFraud ? 'FRAUD' : isReview ? 'REVIEW' : 'LEGIT';
+  const amount = (Math.random() * 4800 + 10).toFixed(2);
+  const merchant = merchants[Math.floor(Math.random() * merchants.length)];
+  const country = countries[Math.floor(Math.random() * countries.length)];
+  const now = new Date();
+  const ts = now.toTimeString().substr(0,8);
+  const scoreDisplay = (score * 100).toFixed(0);
+  const barColor = isFraud ? 'var(--red)' : isReview ? 'var(--amber)' : 'var(--green)';
+
+  const row = document.createElement('div');
+  row.className = 'txn-row';
+  row.innerHTML = `
+    <span style="color:var(--muted);font-size:10px">${ts}</span>
+    <span style="color:var(--blue);font-size:10px">${randId()}</span>
+    <span style="font-size:10px">${merchant} <span style="color:var(--muted)">${country}</span></span>
+    <span style="font-size:10px">$${parseFloat(amount).toLocaleString()}</span>
+    <span>
+      <div style="font-size:10px;margin-bottom:2px">${scoreDisplay}%</div>
+      <div class="score-bar"><div class="score-fill" style="width:${scoreDisplay}%;background:${barColor}"></div></div>
+    </span>
+    <span><span class="badge ${status}">${label}</span></span>
+  `;
+
+  feed.insertBefore(row, feed.firstChild);
+  if (feed.children.length > 40) feed.removeChild(feed.lastChild);
+
+  // Update counters
+  if (isFraud) {
+    fraudCount++;
+    document.getElementById('fraudCount').textContent = fraudCount.toLocaleString();
+  }
+}
+
+let fraudCount = 1847;
+setInterval(addTxn, 300);
+for (let i = 0; i < 18; i++) setTimeout(addTxn, i * 60);
+
+/* ─── LSTM LAYERS ─── */
+const lstmLayers = [
+  { label: 'Input',    pct: 100, color: '#4a6070' },
+  { label: 'LSTM-1',  pct: 92,  color: '#0077cc' },
+  { label: 'LSTM-2',  pct: 86,  color: '#0099ff' },
+  { label: 'LSTM-3',  pct: 78,  color: '#00bbff' },
+  { label: 'Attn',    pct: 71,  color: '#00ddff' },
+  { label: 'Dense',   pct: 65,  color: '#ff8800' },
+  { label: 'Output',  pct: 99,  color: '#ff2244' },
+];
+
+const lstmEl = document.getElementById('lstmViz');
+lstmEl.innerHTML = lstmLayers.map(l => `
+  <div class="lstm-row">
+    <div class="lstm-label">${l.label}</div>
+    <div class="lstm-bar-track">
+      <div class="lstm-bar-fill" style="width:0%;background:${l.color}" data-w="${l.pct}"></div>
+    </div>
+    <div class="lstm-pct">${l.pct}%</div>
+  </div>
+`).join('');
+
+setTimeout(() => {
+  document.querySelectorAll('.lstm-bar-fill').forEach(b => {
+    b.style.width = b.dataset.w + '%';
+  });
+}, 400);
+
+/* ─── TPS COUNTER ─── */
+let tpsBase = 5284;
+setInterval(() => {
+  tpsBase += Math.floor((Math.random() - 0.48) * 120);
+  tpsBase = Math.max(4200, Math.min(7200, tpsBase));
+  document.getElementById('tpsVal').textContent = tpsBase.toLocaleString();
+}, 800);
+
+/* ─── ANOMALY TIMELINE ─── */
+const tlCanvas = document.getElementById('timelineCanvas');
+const tlCtx    = tlCanvas.getContext('2d');
+let tlData = Array.from({length: 80}, () => Math.random() * 0.4 + 0.1);
+
+function resizeTimeline() {
+  tlCanvas.width  = tlCanvas.offsetWidth * devicePixelRatio;
+  tlCanvas.height = tlCanvas.offsetHeight * devicePixelRatio;
+  tlCtx.scale(devicePixelRatio, devicePixelRatio);
+}
+resizeTimeline();
+window.addEventListener('resize', resizeTimeline);
+
+function drawTimeline() {
+  const W = tlCanvas.offsetWidth, H = tlCanvas.offsetHeight;
+  tlCtx.clearRect(0, 0, W, H);
+
+  // Threshold line
+  tlCtx.setLineDash([4, 4]);
+  tlCtx.strokeStyle = 'rgba(255,170,0,0.4)';
+  tlCtx.lineWidth = 1;
+  tlCtx.beginPath();
+  tlCtx.moveTo(0, H * 0.35);
+  tlCtx.lineTo(W, H * 0.35);
+  tlCtx.stroke();
+  tlCtx.setLineDash([]);
+
+  // Fill
+  const grad = tlCtx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(255,34,68,0.3)');
+  grad.addColorStop(1, 'rgba(255,34,68,0)');
+
+  tlCtx.beginPath();
+  tlData.forEach((v, i) => {
+    const x = (i / (tlData.length - 1)) * W;
+    const y = H - v * H * 0.85 - 10;
+    i === 0 ? tlCtx.moveTo(x, y) : tlCtx.lineTo(x, y);
+  });
+  tlCtx.lineTo(W, H); tlCtx.lineTo(0, H); tlCtx.closePath();
+  tlCtx.fillStyle = grad;
+  tlCtx.fill();
+
+  // Line
+  tlCtx.beginPath();
+  tlData.forEach((v, i) => {
+    const x = (i / (tlData.length - 1)) * W;
+    const y = H - v * H * 0.85 - 10;
+    i === 0 ? tlCtx.moveTo(x, y) : tlCtx.lineTo(x, y);
+  });
+  tlCtx.strokeStyle = '#ff2244';
+  tlCtx.lineWidth = 1.5;
+  tlCtx.stroke();
+
+  // Spike dots
+  tlData.forEach((v, i) => {
+    if (v > 0.75) {
+      const x = (i / (tlData.length - 1)) * W;
+      const y = H - v * H * 0.85 - 10;
+      tlCtx.beginPath();
+      tlCtx.arc(x, y, 4, 0, Math.PI * 2);
+      tlCtx.fillStyle = '#ff2244';
+      tlCtx.fill();
+    }
+  });
+}
+
+setInterval(() => {
+  const spike = Math.random() < 0.08;
+  tlData.push(spike ? 0.7 + Math.random() * 0.3 : Math.random() * 0.4 + 0.05);
+  tlData.shift();
+  drawTimeline();
+}, 400);
+drawTimeline();
+
+/* ─── ALERT LOG ─── */
+const alertEl = document.getElementById('alertLog');
+const alertTemplates = [
+  { icon: '🔴', msg: 'Card cloning detected · Acct #••4821 · $4,200', type: 'fraud' },
+  { icon: '🟠', msg: 'Velocity spike · 12 txns/min from IP 185.x.x.x', type: 'review' },
+  { icon: '🔴', msg: 'Geo-impossible travel · Lagos → London in 2min', type: 'fraud' },
+  { icon: '🟡', msg: 'Unusual merchant category · Acct #••3317', type: 'review' },
+  { icon: '🔴', msg: 'Device fingerprint mismatch · High-value txn $8,900', type: 'fraud' },
+  { icon: '🟠', msg: 'Account takeover attempt · Password reset flood', type: 'review' },
+  { icon: '🔴', msg: 'Synthetic identity flagged · SSN-DOB mismatch', type: 'fraud' },
+  { icon: '🟡', msg: 'After-hours large withdrawal · Acct #••7710', type: 'review' },
+];
+
+function addAlert() {
+  const a = alertTemplates[Math.floor(Math.random() * alertTemplates.length)];
+  const ts = new Date().toTimeString().substr(0,8);
+  const item = document.createElement('div');
+  item.className = 'alert-item';
+  const color = a.type === 'fraud' ? 'var(--red)' : a.type === 'review' ? 'var(--amber)' : 'var(--green)';
+  item.innerHTML = `
+    <div class="alert-icon">${a.icon}</div>
+    <div>
+      <div class="alert-msg" style="color:${color}">${a.msg}</div>
+      <div class="alert-time">${ts} · LSTM confidence 97.${Math.floor(Math.random()*9)}%</div>
+    </div>
+  `;
+  alertEl.insertBefore(item, alertEl.firstChild);
+  if (alertEl.children.length > 8) alertEl.removeChild(alertEl.lastChild);
+}
+
+for (let i = 0; i < 4; i++) setTimeout(addAlert, i * 500);
+setInterval(addAlert, 3200);
+
+/* ─── GEO GRID ─── */
+const geoData = [
+  { country: '🇺🇸 United States', pct: 100, count: '1,204' },
+  { country: '🇳🇬 Nigeria',        pct: 82,  count: '983' },
+  { country: '🇷🇺 Russia',         pct: 71,  count: '854' },
+  { country: '🇨🇳 China',          pct: 58,  count: '697' },
+  { country: '🇧🇷 Brazil',         pct: 44,  count: '527' },
+  { country: '🇺🇦 Ukraine',        pct: 38,  count: '456' },
+];
+
+const geoEl = document.getElementById('geoGrid');
+geoEl.innerHTML = geoData.map(g => `
+  <div class="geo-item">
+    <div class="geo-country">${g.country}</div>
+    <div class="geo-bar-track">
+      <div class="geo-bar-fill" style="width:0%" data-w="${g.pct}"></div>
+    </div>
+    <div class="geo-count">${g.count} alerts</div>
+  </div>
+`).join('');
+
+setTimeout(() => {
+  document.querySelectorAll('.geo-bar-fill').forEach(b => {
+    b.style.width = b.dataset.w + '%';
+  });
+}, 600);
+
+/* ─── CLOCK ─── */
+function updateClock() {
+  const ts = new Date().toISOString().replace('T',' ').substr(0,19);
+  document.getElementById('footerTs').textContent = 'SYSTEM TIME: ' + ts + ' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ─── ACTIVE THREATS COUNTER ─── */
+setInterval(() => {
+  const v = Math.max(10, Math.min(45, parseInt(document.getElementById('activeThreats').textContent) + Math.floor((Math.random()-0.4)*3)));
+  document.getElementById('activeThreats').textContent = v;
+}, 2000);
+</script>
+</body>
+</html>
